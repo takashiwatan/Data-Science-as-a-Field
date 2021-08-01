@@ -1,0 +1,100 @@
+---
+title: "NYPD Shooting Incidents"
+date: "7/18/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The Data
+Open Data (https://opendata.cityofnewyork.us/) is free public data published by New York City agencies and other partners. It offers various interesting datasets, and also can be a good resource for data science exercise. In this report, I will use a dataset titled "NYPD Shooting Incident Data (Historic)," which is a list of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year. I will import and tidy the data, and then run some analysis.
+
+## Data Import
+
+First I will import the data. The import script below download the CSV file directly from the source (https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv). Each record of the data represents a shooting incident. The field definitions are copied copied in below.
+
+```{r preps, echo=TRUE}
+library(tidyverse)
+the_url = "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+csv_data = read_csv(the_url)
+```
+```{r nexxx}
+```
+## Data Transform
+
+The script below will cleanse the downloaded CSV data. The incident_key is not unique, which means there are multiple records for an incident. I will deduplicate the data using simple `group_by(INCIDENT_KEY)`. Since I will explore the trend of the number of incidents and the victims' age over time, I will retain two fields, OCCUR_DATE and VIC_AGE_GROUP, from the original CSV records. Some of the records have empty VIC_AGE_GROUP field. I will filter them out. 
+
+## Visualization and Analysis
+
+I will draw two charts to see the trend of number of incidents. 
+
+The first chart plots the number of incidents for each year. It shows the downward trend with an anomaly in 2020. It appears the gun control of NYC has been effective, and the pandemic caused the increase of incidents in 2020. But those are merely my interpretations affected by confirmation bias. To draw such conclusions, the number of incidents needs be evaluated against other figures such as the national average, and the records for year 2020 need to be broken down further. 
+
+The next chart shows the monthly distribution of the incidents. It shows the seasonality that more incidents are observed during the summer. I assume many measures have been already in place to control shooting incidents during the summer, but unfortunately it does not appear to be contained. 
+```{r cleaning, echo=TRUE}
+# Filter and obtain month and year
+baseline_data <- csv_data %>% group_by(INCIDENT_KEY) %>% select(c(INCIDENT_KEY,OCCUR_DATE,VIC_AGE_GROUP)) %>% 
+   filter(VIC_AGE_GROUP != "NA")  %>% 
+ mutate(OCCUR_MONTH=substr(OCCUR_DATE,1,2), OCCUR_YEAR=substr(OCCUR_DATE,7,10)) 
+
+# annual rollup
+annual_summary <- baseline_data %>% group_by(OCCUR_YEAR) %>% 
+  summarise(COUNT=n()) %>% ungroup()
+
+# draw chart
+annual_summary %>% ggplot(aes(x=OCCUR_YEAR, y=COUNT))+
+              geom_point()+labs(title="Annual Incidents", x="Year", y="Incidents")
+
+# monthly rollup
+monthly_summary <- baseline_data %>% group_by(OCCUR_MONTH) %>% 
+  summarise(COUNT=n())%>% ungroup()
+
+# draw chart
+monthly_summary %>% arrange(COUNT) %>% 
+  ggplot(aes(x=OCCUR_MONTH, y=COUNT))+
+  geom_point()+labs(title="Monthly Incidents", x="Month of Year", y="Incidents")
+
+```
+
+## Analysis and Model
+
+Let's see if the victims are getting younger or older. I will pick a middle number for each group to get the average victim age: 18 for <18, 35 for 25-44, 55 for 45-64, and 70 for 65+.
+
+The chart shows the victim age is getting slightly older. The linear regression confirms the upward trend. Note that the age group binning makes the result biased - the average is not accurate and the age grouping does not consider the weight of each group.
+
+```{r analysis_part2, echo=TRUE}
+# victim age group
+victim_age_groups <- baseline_data %>% filter(VIC_AGE_GROUP!="UNKNOWN") %>% 
+  mutate(VIC_AGE_GROUP=case_when(VIC_AGE_GROUP=="<18" ~ 18, 
+                                 VIC_AGE_GROUP=="18-24" ~ 35, 
+                                 VIC_AGE_GROUP=="25-44" ~ 35, 
+                                 VIC_AGE_GROUP=="45-64" ~ 55, 
+                                 VIC_AGE_GROUP=="65+" ~ 70, TRUE ~ 100), 
+         OCCUR_YEAR=strtoi(OCCUR_YEAR)) %>% 
+  group_by(OCCUR_YEAR) %>% summarize(AVERAGE_AGE = mean(VIC_AGE_GROUP)) %>% 
+  ungroup()
+
+# plot
+victim_age_groups %>% ggplot()+
+  geom_point(aes(x=OCCUR_YEAR, y=AVERAGE_AGE),color=("blue"))+
+  labs(title="Average Victim Age", x="Year", y="Average Victim Age")
+
+# linear regression
+mod <- lm(AVERAGE_AGE ~ OCCUR_YEAR, data=victim_age_groups)
+
+# compute
+final <- victim_age_groups %>% mutate(pred = predict(mod))
+
+# draw
+final %>% ggplot()+geom_point(aes(x=OCCUR_YEAR, y=AVERAGE_AGE, color='Actual'))+
+    geom_point(aes(x=OCCUR_YEAR, y=pred,color='Regression'))+
+    geom_line(aes(x=OCCUR_YEAR, y=pred,color='Regression'))+
+    labs(title="Average Victim Age with Linear Regression", x="Year", y="Average Victim Age")
+
+```
+
+## Conclusion
+
+The R code above establishes simple but reproducible an import-tidy-analyze process. The analysis ran here shows that there have been more shooting incidents during the summer, and the average age of the victim has been getting slightly older. Two charts and a linear model support those observations.
