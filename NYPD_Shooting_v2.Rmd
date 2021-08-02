@@ -20,8 +20,7 @@ library(tidyverse)
 the_url = "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
 csv_data = read_csv(the_url)
 ```
-```{r nexxx}
-```
+
 ## Data Transform
 
 The script below will cleanse the downloaded CSV data. The incident_key is not unique, which means there are multiple records for an incident. I will deduplicate the data using simple `group_by(INCIDENT_KEY)`. Since I will explore the trend of the number of incidents and the victims' age over time, I will retain two fields, OCCUR_DATE and VIC_AGE_GROUP, from the original CSV records. Some of the records have empty VIC_AGE_GROUP field. I will filter them out. 
