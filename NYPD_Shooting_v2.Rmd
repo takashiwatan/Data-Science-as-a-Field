@@ -34,7 +34,8 @@ The first chart plots the number of incidents for each year. It shows the downwa
 The next chart shows the monthly distribution of the incidents. It shows the seasonality that more incidents are observed during the summer. I assume many measures have been already in place to control shooting incidents during the summer, but unfortunately it does not appear to be contained. 
 ```{r cleaning, echo=TRUE}
 # Filter and obtain month and year
-baseline_data <- csv_data %>% group_by(INCIDENT_KEY) %>% select(c(INCIDENT_KEY,OCCUR_DATE,VIC_AGE_GROUP)) %>% 
+baseline_data <- csv_data %>% group_by(INCIDENT_KEY) %>% 
+select(c(INCIDENT_KEY,OCCUR_DATE,VIC_AGE_GROUP)) %>% 
    filter(VIC_AGE_GROUP != "NA")  %>% 
  mutate(OCCUR_MONTH=substr(OCCUR_DATE,1,2), OCCUR_YEAR=substr(OCCUR_DATE,7,10)) 
 
@@ -90,7 +91,8 @@ final <- victim_age_groups %>% mutate(pred = predict(mod))
 final %>% ggplot()+geom_point(aes(x=OCCUR_YEAR, y=AVERAGE_AGE, color='Actual'))+
     geom_point(aes(x=OCCUR_YEAR, y=pred,color='Regression'))+
     geom_line(aes(x=OCCUR_YEAR, y=pred,color='Regression'))+
-    labs(title="Average Victim Age with Linear Regression", x="Year", y="Average Victim Age")
+    labs(title="Average Victim Age with Linear Regression", x="Year", 
+    y="Average Victim Age")
 
 ```
 
